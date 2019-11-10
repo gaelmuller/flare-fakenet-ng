@@ -36,8 +36,8 @@ class SSLWrapper(object):
             self.ca_key = self.config.get('ca_key', None)
         else:
             self.ca_cert, self.ca_key = self.create_cert(self.CN)
-        if ( not self.config.get('networkmode', None) == 'multihost' and 
-             not self.config.get('static_ca') == 'Yes'): 
+        if ( not self.config.get('networkmode', None) == 'multihost' and
+             not self.config.get('static_ca') == 'Yes'):
             self.logger.debug('adding root cert: %s', self.ca_cert)
             self._add_root_ca(self.ca_cert)
 
@@ -67,7 +67,7 @@ class SSLWrapper(object):
         certfile_path = ListenerBase.abs_config_path(certfile_path)
         if certfile_path is None:
             raise RuntimeError('Cound not locate %s' % (certfile_path,))
-        
+
         return ssl.wrap_socket(s, keyfile=keyfile_path, certfile=certfile_path,
                                server_side=True, ciphers='RSA')
 
@@ -86,7 +86,7 @@ class SSLWrapper(object):
             cert_dir = os.path.abspath(self.config.get('cert_dir'))
         else:
             cert_dir = os.path.abspath(cert_dir)
-        
+
         cert_file = os.path.join(cert_dir, "%s.crt" % (cn))
         key_file = os.path.join(cert_dir, "%s.key" % (cn))
         if os.path.exists(cert_file) and os.path.exists(key_file):
@@ -116,12 +116,20 @@ class SSLWrapper(object):
         cert.gmtime_adj_notBefore(0)
         cert.gmtime_adj_notAfter(na)
         cert.set_pubkey(key)
+
+        cert.set_version(2)
+        cert.add_extensions([
+            crypto.X509Extension(
+                "subjectAltName", False, "DNS:{}".format(cn)
+            )
+        ])
+
         if f_selfsign:
             cert.set_issuer(cert.get_subject())
-            cert.sign(key, "sha1")
+            cert.sign(key, "sha256")
         else:
             cert.set_issuer(ca_cert_data.get_subject())
-            cert.sign(ca_key_data, "sha1")
+            cert.sign(ca_key_data, "sha256")
 
         try:
             with open(cert_file, "wb") as cert_file_input:
@@ -159,7 +167,7 @@ class SSLWrapper(object):
         except:
             self.logger.error("Failed to load certficate")
         return ca_cert
-    
+
     def _load_private_key(self, keypath):
         try:
             with open(keypath, 'rb') as key_file_input:
@@ -188,18 +196,16 @@ class SSLWrapper(object):
     def _remove_root_ca(self, cn):
         argv = ['certutil', '-delstore', 'Root', cn]
         return self._run_win_certutil(argv)
-    
-    
+
+
     def __del__(self):
         cert = None
         if self.ca_cert:
             cert = self._load_cert(self.ca_cert)
 
         if (cert is not None and
-             not self.config.get('networkmode', None) == 'multihost' and 
-             not self.config.get('static_ca') == 'Yes'): 
+             not self.config.get('networkmode', None) == 'multihost' and
+             not self.config.get('static_ca') == 'Yes'):
             self._remove_root_ca(cert.get_subject().CN)
         shutil.rmtree(self.config.get('cert_dir'), ignore_errors=True)
         return
-    
-
