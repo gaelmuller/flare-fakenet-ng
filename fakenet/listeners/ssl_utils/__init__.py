@@ -7,8 +7,10 @@ import shutil
 import sys
 import ssl
 import random
-from listeners import ListenerBase
+
 from OpenSSL import crypto
+
+from fakenet.listeners import ListenerBase
 
 g_ssl_fellback = False  # Notify only once of SSL static certificate fallback
 
